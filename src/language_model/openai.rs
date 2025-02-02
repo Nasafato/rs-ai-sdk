@@ -33,6 +33,28 @@ struct OpenAiChoice {
     message: OpenAiMessage,
 }
 
+#[derive(Serialize)]
+struct EmbeddingRequest {
+    model: String,
+    input: String,
+}
+
+#[derive(Serialize)]
+struct EmbeddingBatchRequest {
+    model: String,
+    input: Vec<String>,
+}
+
+#[derive(Deserialize)]
+struct EmbeddingResponse {
+    data: Vec<EmbeddingData>,
+}
+
+#[derive(Deserialize)]
+struct EmbeddingData {
+    embedding: Vec<f32>,
+}
+
 impl OpenAiLanguageModel {
     pub fn new(model: &str) -> Self {
         Self {
@@ -71,12 +93,36 @@ impl LanguageModel for OpenAiLanguageModel {
     }
 
     async fn embed(&self, input: String) -> Vec<f32> {
-        // Implementation here
-        todo!()
+        let request = EmbeddingRequest {
+            model: "text-embedding-3-small".to_string(),
+            input,
+        };
+
+        let response = self.client.post("https://api.openai.com/v1/embeddings")
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .json(&request)
+            .send()
+            .await.unwrap()
+            .json::<EmbeddingResponse>()
+            .await.unwrap();
+
+        response.data[0].embedding.clone()
     }
 
     async fn embed_many(&self, inputs: Vec<String>) -> Vec<Vec<f32>> {
-        // Implementation here
-        todo!()
+        let request = EmbeddingBatchRequest {
+            model: "text-embedding-3-small".to_string(),
+            input: inputs,
+        };
+
+        let response = self.client.post("https://api.openai.com/v1/embeddings")
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .json(&request)
+            .send()
+            .await.unwrap()
+            .json::<EmbeddingResponse>()
+            .await.unwrap();
+
+        response.data.into_iter().map(|d| d.embedding).collect()
     }
 }
